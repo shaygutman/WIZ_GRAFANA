@@ -1,0 +1,60 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-wiz_monitor}
+      POSTGRES_USER: ${POSTGRES_USER:-wiz_monitor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD:?Set GRAFANA_DB_PASSWORD in .env}
+    ports:
+      - "${POSTGRES_BIND_ADDRESS:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  collector:
+    build:
+      context: ./collector
+    environment:
+      WIZ_API_URL: ${WIZ_API_URL:?Set WIZ_API_URL in .env}
+      WIZ_AUTH_URL: ${WIZ_AUTH_URL:-https://auth.app.wiz.io/oauth/token}
+      WIZ_CLIENT_ID: ${WIZ_CLIENT_ID:?Set WIZ_CLIENT_ID in .env}
+      WIZ_CLIENT_SECRET: ${WIZ_CLIENT_SECRET:?Set WIZ_CLIENT_SECRET in .env}
+      WIZ_AUDIENCE: ${WIZ_AUDIENCE:-wiz-api}
+      WIZ_PAGE_SIZE: ${WIZ_PAGE_SIZE:-100}
+      SYNC_INTERVAL_SECONDS: ${SYNC_INTERVAL_SECONDS:-900}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${POSTGRES_DB:-wiz_monitor}
+      DB_USER: ${POSTGRES_USER:-wiz_monitor}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    ports:
+      - "${GRAFANA_BIND_ADDRESS:-127.0.0.1}:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:-wiz_monitor}
+    volumes:
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  grafana_data:
