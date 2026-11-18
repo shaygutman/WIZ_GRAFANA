@@ -1,0 +1,242 @@
+{
+  "uid": "wiz-security-overview",
+  "title": "WIZ CLOUD – SECURITY OVERVIEW",
+  "description": "Current Wiz issues from wiz_monitor. The collector does not collect total cloud inventory, rule names, environments, subscription names or historical snapshots. Unavailable metrics are explicitly labeled. Current issue counts are not filtered by the dashboard time range. Time-series annotations show critical detections (red), critical/high resolutions (green), and custom wiz_annotations events (blue) within the selected time range across all environments.",
+  "tags": ["wiz", "overview"],
+  "links": [
+    {
+      "title": "Wiz Dashboards",
+      "type": "dashboards",
+      "tags": ["wiz"],
+      "asDropdown": false,
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false
+    }
+  ],
+  "timezone": "utc",
+  "schemaVersion": 40,
+  "version": 1,
+  "style": "dark",
+  "editable": false,
+  "refresh": "5m",
+  "time": {"from": "now-30d", "to": "now"},
+  "timepicker": {},
+  "templating": {"list": []},
+  "annotations": {
+    "list": [
+      {
+        "name": "New Critical Issue Detected",
+        "datasource": {"type": "postgres", "uid": "postgres"},
+        "enable": true,
+        "hide": false,
+        "iconColor": "#F2495C",
+        "target": {
+          "refId": "Annotation", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "SELECT created_at AS time, 'CRITICAL: ' || rule_name AS title, subscription_name || ' | ' || resource_name AS text, 'critical,wiz' AS tags FROM wiz_active_issues WHERE severity = 'CRITICAL' AND $__timeFilter(created_at);"
+        }
+      },
+      {
+        "name": "Critical/High Issue Resolved",
+        "datasource": {"type": "postgres", "uid": "postgres"},
+        "enable": true,
+        "hide": false,
+        "iconColor": "#73BF69",
+        "target": {
+          "refId": "Annotation", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "SELECT resolved_at AS time, 'RESOLVED: ' || rule_name AS title, subscription_name || ' | ' || resource_name AS text, 'resolved,wiz' AS tags FROM wiz_active_issues WHERE status = 'RESOLVED' AND severity IN ('CRITICAL', 'HIGH') AND resolved_at IS NOT NULL AND $__timeFilter(resolved_at);"
+        }
+      },
+      {
+        "name": "Deployments & Maintenance Events",
+        "datasource": {"type": "postgres", "uid": "postgres"},
+        "enable": true,
+        "hide": false,
+        "iconColor": "#5794F2",
+        "target": {
+          "refId": "Annotation", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "SELECT event_time AS time, title, description AS text, tags FROM wiz_annotations WHERE $__timeFilter(event_time);"
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Critical Issues",
+      "description": "Current OPEN issues of CRITICAL severity.",
+      "type": "stat",
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [
+        {
+          "refId": "A", "format": "table", "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) AS \"Critical Issues\" FROM wiz_issues WHERE status = 'OPEN' AND severity = 'CRITICAL';"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "decimals": 0,
+          "color": {"mode": "fixed", "fixedColor": "red"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "colorMode": "value", "graphMode": "none", "textMode": "auto"
+      }
+    },
+    {
+      "id": 2,
+      "title": "High Issues",
+      "description": "Current OPEN issues of HIGH severity.",
+      "type": "stat",
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [
+        {
+          "refId": "A", "format": "table", "rawQuery": true,
+          "rawSql": "SELECT COUNT(*) AS \"High Issues\" FROM wiz_issues WHERE status = 'OPEN' AND severity = 'HIGH';"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "decimals": 0,
+          "color": {"mode": "fixed", "fixedColor": "orange"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "colorMode": "value", "graphMode": "none", "textMode": "auto"
+      }
+    },
+    {
+      "id": 3,
+      "title": "Cloud Assets",
+      "description": "Distinct entity IDs affected by current OPEN issues; not total cloud inventory. Issues without entity IDs are excluded.",
+      "type": "stat",
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [
+        {
+          "refId": "A", "format": "table", "rawQuery": true,
+          "rawSql": "SELECT COUNT(DISTINCT entity_id) AS \"Affected resources\" FROM wiz_issues WHERE status = 'OPEN';"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "blue"}},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "colorMode": "value", "graphMode": "none", "textMode": "auto"
+      }
+    },
+    {
+      "id": 4,
+      "title": "Exposed Assets",
+      "type": "text",
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 0},
+      "options": {
+        "mode": "markdown",
+        "content": "### Not available\nRule names are not collected. Open issues matching internet/public/exposed rules cannot be counted reliably."
+      }
+    },
+    {
+      "id": 5,
+      "title": "Issues by Severity",
+      "description": "Current OPEN issues grouped by severity.",
+      "type": "piechart",
+      "gridPos": {"h": 9, "w": 10, "x": 0, "y": 5},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [
+        {
+          "refId": "A", "format": "table", "rawQuery": true,
+          "rawSql": "SELECT severity AS \"Severity\", COUNT(*) AS \"Issues\" FROM wiz_issues WHERE status = 'OPEN' GROUP BY severity ORDER BY CASE severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 WHEN 'LOW' THEN 4 ELSE 5 END;"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short", "decimals": 0,
+          "color": {"mode": "palette-classic"}
+        },
+        "overrides": []
+      },
+      "options": {
+        "pieType": "donut",
+        "displayLabels": ["name", "percent"],
+        "legend": {"displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"]},
+        "tooltip": {"mode": "single", "sort": "none"},
+        "reduceOptions": {"values": true, "calcs": ["lastNotNull"], "fields": "/^Issues$/"}
+      }
+    },
+    {
+      "id": 6,
+      "title": "Open Issues Trend – Last 30 Days",
+      "type": "text",
+      "gridPos": {"h": 9, "w": 14, "x": 10, "y": 5},
+      "options": {
+        "mode": "markdown",
+        "content": "## Historical snapshots not available\nThe current collector updates `wiz_issues` in place and does not populate `wiz_snapshots`.\n\nA true 30-day open-issue trend requires periodic snapshots. Issue creation dates are not a substitute for historical open counts."
+      }
+    },
+    {
+      "id": 7,
+      "title": "Issues by Cloud Account",
+      "type": "text",
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 14},
+      "options": {
+        "mode": "markdown",
+        "content": "## Cloud-account data not available\n`subscription_name` and cloud-provider metadata are not collected.\n\nAn AWS account/severity breakdown cannot be produced from the existing data."
+      }
+    },
+    {
+      "id": 8,
+      "title": "Top Risky Resources",
+      "description": "Top 20 identified resources with OPEN Critical or High issues, ranked by Critical count then High count.",
+      "type": "table",
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 14},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [
+        {
+          "refId": "A", "format": "table", "rawQuery": true,
+          "rawSql": "SELECT entity_id AS \"Resource ID\", COALESCE(MAX(entity_name), entity_id) AS \"Resource\", MAX(entity_type) AS \"Type\", COUNT(*) FILTER (WHERE severity = 'CRITICAL') AS \"Critical\", COUNT(*) FILTER (WHERE severity = 'HIGH') AS \"High\" FROM wiz_issues WHERE status = 'OPEN' AND severity IN ('CRITICAL', 'HIGH') AND entity_id IS NOT NULL GROUP BY entity_id ORDER BY \"Critical\" DESC, \"High\" DESC, entity_id LIMIT 20;"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {"custom": {"align": "auto", "displayMode": "auto", "filterable": true}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "Resource ID"}, "properties": [{"id": "custom.hidden", "value": true}]},
+          {"matcher": {"id": "byName", "options": "Critical"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}, {"id": "custom.cellOptions", "value": {"type": "color-text"}}]},
+          {"matcher": {"id": "byName", "options": "High"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}, {"id": "custom.cellOptions", "value": {"type": "color-text"}}]}
+        ]
+      },
+      "options": {"showHeader": true, "cellHeight": "sm", "sortBy": [{"displayName": "Critical", "desc": true}, {"displayName": "High", "desc": true}]}
+    },
+    {
+      "id": 9,
+      "title": "Recent Detections",
+      "description": "50 most recently created OPEN issues. Environment and rule name are explicitly unavailable; description is included instead.",
+      "type": "logs",
+      "gridPos": {"h": 11, "w": 24, "x": 0, "y": 24},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [
+        {
+          "refId": "A", "format": "table", "rawQuery": true,
+          "rawSql": "SELECT created_at AS \"time\", CONCAT('[', severity, '] environment=not-collected resource=', COALESCE(entity_name, entity_id, 'unknown'), ' rule=not-collected description=', COALESCE(description, '(none)')) AS body FROM wiz_issues WHERE status = 'OPEN' AND created_at IS NOT NULL ORDER BY created_at DESC, id LIMIT 50;"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      }
+    }
+  ]
+}

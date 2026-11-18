@@ -1,0 +1,198 @@
+{
+  "uid": "eu-us-prod",
+  "title": "EU_US_PROD",
+  "description": "AWS Production only: US 297157437385 and EU 606889819964, with exact subscription-name fallback. Counts include risk issues, posture issues and individual vulnerability findings, not unique CVEs or resources. Open panels show currently active OPEN/IN_PROGRESS findings detected within the selected time range; resolved panels use resolution time. New/opened events include findings subsequently resolved. The trend compares detection and resolution events, not historical backlog or every reopen transition. Each sync refreshes all active findings and the last 90 days of resolutions; previously stored history is retained. Missing resolution dates are never inferred from disappearance. Time-series annotations show critical detections (red), critical/high resolutions (green), and custom wiz_annotations events (blue) within the selected time range across all environments, independently of the production-only panel filters.",
+  "tags": ["wiz", "eu_us_prod"],
+  "links": [
+    {
+      "title": "Wiz Dashboards",
+      "type": "dashboards",
+      "tags": ["wiz"],
+      "asDropdown": false,
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false
+    }
+  ],
+  "timezone": "utc",
+  "schemaVersion": 40,
+  "version": 1,
+  "style": "dark",
+  "editable": false,
+  "refresh": "5m",
+  "time": {"from": "now-30d", "to": "now"},
+  "timepicker": {},
+  "annotations": {
+    "list": [
+      {
+        "name": "New Critical Issue Detected",
+        "datasource": {"type": "postgres", "uid": "postgres"},
+        "enable": true,
+        "hide": false,
+        "iconColor": "#F2495C",
+        "target": {
+          "refId": "Annotation", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "SELECT created_at AS time, 'CRITICAL: ' || rule_name AS title, subscription_name || ' | ' || resource_name AS text, 'critical,wiz' AS tags FROM wiz_active_issues WHERE severity = 'CRITICAL' AND $__timeFilter(created_at);"
+        }
+      },
+      {
+        "name": "Critical/High Issue Resolved",
+        "datasource": {"type": "postgres", "uid": "postgres"},
+        "enable": true,
+        "hide": false,
+        "iconColor": "#73BF69",
+        "target": {
+          "refId": "Annotation", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "SELECT resolved_at AS time, 'RESOLVED: ' || rule_name AS title, subscription_name || ' | ' || resource_name AS text, 'resolved,wiz' AS tags FROM wiz_active_issues WHERE status = 'RESOLVED' AND severity IN ('CRITICAL', 'HIGH') AND resolved_at IS NOT NULL AND $__timeFilter(resolved_at);"
+        }
+      },
+      {
+        "name": "Deployments & Maintenance Events",
+        "datasource": {"type": "postgres", "uid": "postgres"},
+        "enable": true,
+        "hide": false,
+        "iconColor": "#5794F2",
+        "target": {
+          "refId": "Annotation", "format": "table", "rawQuery": true, "editorMode": "code",
+          "rawSql": "SELECT event_time AS time, title, description AS text, tags FROM wiz_annotations WHERE $__timeFilter(event_time);"
+        }
+      }
+    ]
+  },
+  "templating": {"list": []},
+  "panels": [
+    {
+      "id": 1,
+      "title": "US Prod Open (Critical/High)",
+      "description": "Currently active OPEN/IN_PROGRESS Critical or High findings in US Production, detected within the selected time range.",
+      "type": "stat",
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT COUNT(*) AS \"US Prod Open\" FROM wiz_active_issues WHERE cloud_platform = 'AWS' AND (subscription_external_id IN ('297157437385', '606889819964') OR subscription_name IN ('mitg-pillcamgeniusus-prod-mdt', 'mitg-pillcamgeniuseu-prod-mdt')) AND (subscription_external_id = '297157437385' OR subscription_name = 'mitg-pillcamgeniusus-prod-mdt') AND is_active AND status IN ('OPEN', 'IN_PROGRESS') AND severity IN ('CRITICAL', 'HIGH') AND $__timeFilter(created_at);"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "red"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 2,
+      "title": "EU Prod Open (Critical/High)",
+      "description": "Currently active OPEN/IN_PROGRESS Critical or High findings in EU Production, detected within the selected time range.",
+      "type": "stat",
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT COUNT(*) AS \"EU Prod Open\" FROM wiz_active_issues WHERE cloud_platform = 'AWS' AND (subscription_external_id IN ('297157437385', '606889819964') OR subscription_name IN ('mitg-pillcamgeniusus-prod-mdt', 'mitg-pillcamgeniuseu-prod-mdt')) AND (subscription_external_id = '606889819964' OR subscription_name = 'mitg-pillcamgeniuseu-prod-mdt') AND is_active AND status IN ('OPEN', 'IN_PROGRESS') AND severity IN ('CRITICAL', 'HIGH') AND $__timeFilter(created_at);"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "orange"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 3,
+      "title": "Resolved in Selected Time Range",
+      "description": "Findings currently RESOLVED with an actual Wiz resolution timestamp within the selected period, regardless of detection date.",
+      "type": "stat",
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT COUNT(*) AS \"Resolved\" FROM wiz_active_issues WHERE cloud_platform = 'AWS' AND (subscription_external_id IN ('297157437385', '606889819964') OR subscription_name IN ('mitg-pillcamgeniusus-prod-mdt', 'mitg-pillcamgeniuseu-prod-mdt')) AND status = 'RESOLVED' AND $__timeFilter(resolved_at);"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "green"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 4,
+      "title": "New Opened in Selected Time Range",
+      "description": "Findings first detected within the selected period, including those subsequently resolved. Not a current-open backlog count.",
+      "type": "stat",
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT COUNT(*) AS \"New Opened\" FROM wiz_active_issues WHERE cloud_platform = 'AWS' AND (subscription_external_id IN ('297157437385', '606889819964') OR subscription_name IN ('mitg-pillcamgeniusus-prod-mdt', 'mitg-pillcamgeniuseu-prod-mdt')) AND status IN ('OPEN', 'IN_PROGRESS', 'RESOLVED') AND $__timeFilter(created_at);"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "blue"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 5,
+      "title": "Open vs. Resolved Over Time",
+      "description": "Daily detection events (Opened, including subsequently resolved items) versus actual resolution events. Both series use the selected date range. This is not a historical open-backlog chart.",
+      "type": "timeseries",
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 5},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "time_series", "rawQuery": true,
+        "rawSql": "SELECT DATE_TRUNC('day', created_at) AS \"time\", 'Opened' AS metric, COUNT(*)::double precision AS value FROM wiz_active_issues WHERE cloud_platform = 'AWS' AND (subscription_external_id IN ('297157437385', '606889819964') OR subscription_name IN ('mitg-pillcamgeniusus-prod-mdt', 'mitg-pillcamgeniuseu-prod-mdt')) AND status IN ('OPEN', 'IN_PROGRESS', 'RESOLVED') AND $__timeFilter(created_at) GROUP BY 1 UNION ALL SELECT DATE_TRUNC('day', resolved_at) AS \"time\", 'Resolved' AS metric, COUNT(*)::double precision AS value FROM wiz_active_issues WHERE cloud_platform = 'AWS' AND (subscription_external_id IN ('297157437385', '606889819964') OR subscription_name IN ('mitg-pillcamgeniusus-prod-mdt', 'mitg-pillcamgeniuseu-prod-mdt')) AND status = 'RESOLVED' AND $__timeFilter(resolved_at) GROUP BY 1 ORDER BY 1, 2;"
+      }],
+      "fieldConfig": {
+        "defaults": {"unit": "short", "decimals": 0, "min": 0, "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 5, "showPoints": "auto", "spanNulls": false}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "Opened"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}]},
+          {"matcher": {"id": "byName", "options": "Resolved"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]}
+        ]
+      },
+      "options": {"legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 6,
+      "title": "US Prod vs. EU Prod Breakdown by Severity & Status",
+      "description": "Side-by-side counts by severity and status. Active OPEN/IN_PROGRESS findings use detection time; RESOLVED findings use resolution time.",
+      "type": "barchart",
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 5},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT severity || ' / ' || status AS \"Severity / Status\", COUNT(*) FILTER (WHERE subscription_external_id = '297157437385' OR subscription_name = 'mitg-pillcamgeniusus-prod-mdt') AS \"US Prod\", COUNT(*) FILTER (WHERE subscription_external_id = '606889819964' OR subscription_name = 'mitg-pillcamgeniuseu-prod-mdt') AS \"EU Prod\" FROM wiz_active_issues WHERE cloud_platform = 'AWS' AND (subscription_external_id IN ('297157437385', '606889819964') OR subscription_name IN ('mitg-pillcamgeniusus-prod-mdt', 'mitg-pillcamgeniuseu-prod-mdt')) AND ((is_active AND status IN ('OPEN', 'IN_PROGRESS') AND $__timeFilter(created_at)) OR (status = 'RESOLVED' AND $__timeFilter(resolved_at))) GROUP BY severity, status ORDER BY CASE severity WHEN 'CRITICAL' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'LOW' THEN 3 ELSE 4 END, status;"
+      }],
+      "fieldConfig": {
+        "defaults": {"unit": "short", "decimals": 0, "min": 0},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "US Prod"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "blue"}}]},
+          {"matcher": {"id": "byName", "options": "EU Prod"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]}
+        ]
+      },
+      "options": {"orientation": "auto", "xField": "Severity / Status", "stacking": "none", "groupWidth": 0.7, "barWidth": 0.8, "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 7,
+      "title": "Resolved Issues & Vulnerabilities in Selected Period",
+      "description": "All matching resolved findings, sorted by actual resolution time. Detection may predate the selected period. No inferred resolution dates or row limit.",
+      "type": "table",
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 15},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT a.resolved_at AS \"תאריך פתרון\", a.created_at AS \"תאריך זיהוי\", a.subscription_name AS \"Environment\", a.severity AS \"Severity\", a.category AS \"Category\", COALESCE(v.cve_id, v.vulnerability_id, a.rule_name) AS \"Rule / CVE\", a.resource_name AS \"Affected Resource\" FROM wiz_active_issues a LEFT JOIN wiz_vulnerabilities v ON v.finding_id = a.id WHERE a.cloud_platform = 'AWS' AND (a.subscription_external_id IN ('297157437385', '606889819964') OR a.subscription_name IN ('mitg-pillcamgeniusus-prod-mdt', 'mitg-pillcamgeniuseu-prod-mdt')) AND a.status = 'RESOLVED' AND $__timeFilter(a.resolved_at) ORDER BY a.resolved_at DESC, a.id;"
+      }],
+      "fieldConfig": {
+        "defaults": {"noValue": "Unknown", "custom": {"align": "auto", "filterable": true}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "תאריך פתרון"}, "properties": [{"id": "unit", "value": "dateTimeAsIso"}]},
+          {"matcher": {"id": "byName", "options": "תאריך זיהוי"}, "properties": [{"id": "unit", "value": "dateTimeAsIso"}]}
+        ]
+      },
+      "options": {"showHeader": true, "cellHeight": "sm", "enablePagination": true, "footer": {"show": false}}
+    },
+    {
+      "id": 8,
+      "title": "Current Open Issues & Vulnerabilities (US & EU Prod)",
+      "description": "All currently active OPEN/IN_PROGRESS findings detected in the selected time range, ordered Critical, High, Medium, Low, then newest detection. No row limit.",
+      "type": "table",
+      "gridPos": {"h": 13, "w": 24, "x": 0, "y": 27},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT a.created_at AS \"תאריך זיהוי\", a.subscription_name AS \"Environment\", a.severity AS \"Severity\", a.status AS \"Status\", a.category AS \"Category\", COALESCE(v.cve_id, v.vulnerability_id, a.rule_name) AS \"Rule / CVE\", a.resource_name AS \"Affected Resource\" FROM wiz_active_issues a LEFT JOIN wiz_vulnerabilities v ON v.finding_id = a.id WHERE a.cloud_platform = 'AWS' AND (a.subscription_external_id IN ('297157437385', '606889819964') OR a.subscription_name IN ('mitg-pillcamgeniusus-prod-mdt', 'mitg-pillcamgeniuseu-prod-mdt')) AND a.is_active AND a.status IN ('OPEN', 'IN_PROGRESS') AND $__timeFilter(a.created_at) ORDER BY CASE a.severity WHEN 'CRITICAL' THEN 0 WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 WHEN 'LOW' THEN 3 ELSE 4 END, a.created_at DESC NULLS LAST, a.id;"
+      }],
+      "fieldConfig": {
+        "defaults": {"noValue": "Unknown", "custom": {"align": "auto", "filterable": true}},
+        "overrides": [{"matcher": {"id": "byName", "options": "תאריך זיהוי"}, "properties": [{"id": "unit", "value": "dateTimeAsIso"}]}]
+      },
+      "options": {"showHeader": true, "cellHeight": "sm", "enablePagination": true, "footer": {"show": false}}
+    }
+  ]
+}

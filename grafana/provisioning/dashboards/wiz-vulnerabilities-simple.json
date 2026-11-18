@@ -1,0 +1,110 @@
+{
+  "uid": "wiz-vulnerabilities-simple",
+  "title": "WIZ CLOUD – VULNERABILITIES BY TIME & ENVIRONMENT",
+  "description": "Open AWS vulnerability findings, Critical through Low. Trends use actual collection snapshots, not detection-date estimates. Current breakdown and list are not restricted by the time picker. Types come from Wiz artifactType.group, not asset type: container findings may contain OS packages or application libraries. Historical snapshots without type metadata remain Unknown; selecting a specific type excludes that older unclassified history. Existing category totals and historical counts are preserved.",
+  "tags": ["wiz", "vulnerabilities"],
+  "links": [
+    {
+      "title": "Wiz Dashboards",
+      "type": "dashboards",
+      "tags": ["wiz"],
+      "asDropdown": false,
+      "includeVars": true,
+      "keepTime": true,
+      "targetBlank": false
+    }
+  ],
+  "timezone": "utc",
+  "schemaVersion": 40,
+  "version": 1,
+  "style": "dark",
+  "editable": false,
+  "refresh": "5m",
+  "time": {"from": "now-30d", "to": "now"},
+  "annotations": {"list": []},
+  "templating": {
+    "list": [
+      {
+        "name": "environment", "label": "Environment", "type": "query",
+        "datasource": {"type": "postgres", "uid": "postgres"},
+        "query": "SELECT subscription_name FROM wiz_active_issues WHERE source = 'vulnerabilityFindings' AND cloud_platform = 'AWS' UNION SELECT subscription_name FROM wiz_snapshots WHERE metric_type = 'VULNERABILITY' AND cloud_platform = 'AWS' ORDER BY 1",
+        "multi": true, "includeAll": true, "refresh": 1, "sort": 1,
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]},
+        "options": []
+      },
+      {
+        "name": "vuln_type", "label": "Vulnerability Type", "type": "query",
+        "datasource": {"type": "postgres", "uid": "postgres"},
+        "query": "SELECT COALESCE(v.vuln_type, 'Unknown') FROM wiz_vulnerabilities v JOIN wiz_active_issues a ON a.id = v.finding_id WHERE a.cloud_platform = 'AWS' AND a.subscription_name IN (${environment:sqlstring}) UNION SELECT COALESCE(vuln_type, 'Unknown') FROM wiz_snapshots WHERE metric_type = 'VULNERABILITY' AND cloud_platform = 'AWS' AND subscription_name IN (${environment:sqlstring}) ORDER BY 1",
+        "multi": true, "includeAll": true, "refresh": 1, "sort": 1,
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]},
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1, "title": "Vulnerabilities Over Time by Environment", "type": "timeseries",
+      "description": "Open AWS findings (Critical, High, Medium and Low) at each successful collection. No synthetic history. Historical types are Unknown until typed snapshots begin.",
+      "gridPos": {"h": 9, "w": 24, "x": 0, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "time_series", "rawQuery": true,
+        "rawSql": "SELECT recorded_at AS \"time\", subscription_name AS metric, SUM(issue_count)::double precision AS value FROM wiz_snapshots WHERE $__timeFilter(recorded_at) AND metric_type = 'VULNERABILITY' AND cloud_platform = 'AWS' AND subscription_name IN (${environment:sqlstring}) AND COALESCE(vuln_type, 'Unknown') IN (${vuln_type:sqlstring}) GROUP BY recorded_at, subscription_name ORDER BY recorded_at, subscription_name;"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "min": 0, "color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 5, "showPoints": "auto", "spanNulls": false}}, "overrides": []},
+      "options": {"legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 2, "title": "Vulnerabilities Over Time by Severity", "type": "timeseries",
+      "description": "Open AWS findings at collection time. Critical, High and Medium only; Low is intentionally omitted from this chart.",
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 9},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "time_series", "rawQuery": true,
+        "rawSql": "SELECT recorded_at AS \"time\", severity AS metric, SUM(issue_count)::double precision AS value FROM wiz_snapshots WHERE $__timeFilter(recorded_at) AND metric_type = 'VULNERABILITY' AND cloud_platform = 'AWS' AND severity IN ('CRITICAL', 'HIGH', 'MEDIUM') AND subscription_name IN (${environment:sqlstring}) AND COALESCE(vuln_type, 'Unknown') IN (${vuln_type:sqlstring}) GROUP BY recorded_at, severity ORDER BY recorded_at, severity;"
+      }],
+      "fieldConfig": {
+        "defaults": {"unit": "short", "decimals": 0, "min": 0, "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 5, "showPoints": "auto", "spanNulls": false}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "CRITICAL"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]},
+          {"matcher": {"id": "byName", "options": "HIGH"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]},
+          {"matcher": {"id": "byName", "options": "MEDIUM"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}}]}
+        ]
+      },
+      "options": {"legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 3, "title": "Vulnerabilities by Type", "type": "piechart",
+      "description": "Current open AWS findings by Wiz artifact group, filtered by environment and type. Counts findings, not unique CVEs or assets. Independent of time range.",
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 9},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT COALESCE(v.vuln_type, 'Unknown') AS \"Vulnerability Type\", COUNT(*) AS \"Findings\" FROM wiz_vulnerabilities v JOIN wiz_active_issues a ON a.id = v.finding_id WHERE a.is_active AND a.status = 'OPEN' AND a.cloud_platform = 'AWS' AND a.severity IN ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW') AND a.subscription_name IN (${environment:sqlstring}) AND COALESCE(v.vuln_type, 'Unknown') IN (${vuln_type:sqlstring}) GROUP BY 1 ORDER BY \"Findings\" DESC, 1;"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "palette-classic"}}, "overrides": []},
+      "options": {
+        "pieType": "donut", "displayLabels": ["name", "percent"],
+        "legend": {"showLegend": true, "displayMode": "table", "placement": "bottom", "values": ["value", "percent"]},
+        "tooltip": {"mode": "single", "sort": "desc"},
+        "reduceOptions": {"values": true, "calcs": ["lastNotNull"], "fields": "/^Findings$/"}
+      }
+    },
+    {
+      "id": 4, "title": "Vulnerabilities List", "type": "table",
+      "description": "Latest 1,000 currently open AWS findings, newest detections first. Other panels count all matching findings. The time picker controls trends only.",
+      "gridPos": {"h": 13, "w": 24, "x": 0, "y": 19},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT a.created_at AS \"Detection Date\", a.subscription_name AS \"Environment\", COALESCE(v.vuln_type, 'Unknown') AS \"Vulnerability Type\", a.severity AS \"Severity\", COALESCE(v.cve_id, v.vulnerability_id, a.rule_name) AS \"CVE / Title\", a.resource_name AS \"Affected Resource\" FROM wiz_vulnerabilities v JOIN wiz_active_issues a ON a.id = v.finding_id WHERE a.is_active AND a.status = 'OPEN' AND a.cloud_platform = 'AWS' AND a.severity IN ('CRITICAL', 'HIGH', 'MEDIUM', 'LOW') AND a.subscription_name IN (${environment:sqlstring}) AND COALESCE(v.vuln_type, 'Unknown') IN (${vuln_type:sqlstring}) ORDER BY a.created_at DESC NULLS LAST, a.id LIMIT 1000;"
+      }],
+      "fieldConfig": {
+        "defaults": {"noValue": "Unknown", "custom": {"align": "auto", "filterable": true}},
+        "overrides": [{"matcher": {"id": "byName", "options": "Detection Date"}, "properties": [{"id": "unit", "value": "dateTimeAsIso"}]}]
+      },
+      "options": {"showHeader": true, "cellHeight": "sm", "footer": {"show": false}}
+    }
+  ]
+}

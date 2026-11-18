@@ -1,0 +1,381 @@
+{
+  "uid": "wiz-complete-security-remediation",
+  "title": "WIZ CLOUD – COMPLETE SECURITY & REMEDIATION OVERVIEW",
+  "description": "Standalone combined AWS security overview, environment/category analysis and CVE/package remediation dashboard. Existing dashboards are independent and unchanged. Security overview counts OPEN Risk/Posture issues, category panels count OPEN findings, and remediation panels include OPEN plus IN_PROGRESS vulnerability findings. Environment and Wiz severity filter all finding panels; NVD CVSS severity further filters only the CVE section. No invented historical data, CI/CD counts or SLA thresholds.",
+  "tags": ["wiz", "aws", "security", "categories", "cve", "remediation", "combined"],
+  "timezone": "utc",
+  "schemaVersion": 40,
+  "version": 1,
+  "style": "dark",
+  "editable": false,
+  "refresh": "5m",
+  "time": {"from": "now-30d", "to": "now"},
+  "timepicker": {},
+  "annotations": {"list": []},
+  "templating": {
+    "list": [
+      {
+        "name": "environment", "label": "AWS Environment", "type": "query",
+        "datasource": {"type": "postgres", "uid": "postgres"},
+        "definition": "SELECT DISTINCT subscription_name FROM wiz_active_issues WHERE cloud_platform = 'AWS' ORDER BY 1",
+        "query": "SELECT DISTINCT subscription_name FROM wiz_active_issues WHERE cloud_platform = 'AWS' ORDER BY 1",
+        "multi": true, "includeAll": true, "refresh": 1, "sort": 1,
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]},
+        "options": []
+      },
+      {
+        "name": "severity", "label": "Wiz Severity (All Sections)", "type": "custom",
+        "query": "CRITICAL,HIGH,MEDIUM,LOW",
+        "multi": true, "includeAll": true,
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]},
+        "options": [
+          {"text": "CRITICAL", "value": "CRITICAL", "selected": false},
+          {"text": "HIGH", "value": "HIGH", "selected": false},
+          {"text": "MEDIUM", "value": "MEDIUM", "selected": false},
+          {"text": "LOW", "value": "LOW", "selected": false}
+        ]
+      },
+      {
+        "name": "cvss_severity", "label": "NVD CVSS Severity (CVE Section Only)", "type": "query",
+        "datasource": {"type": "postgres", "uid": "postgres"},
+        "definition": "SELECT DISTINCT COALESCE(cvss_severity, 'UNKNOWN') FROM wiz_vulnerabilities ORDER BY 1",
+        "query": "SELECT DISTINCT COALESCE(cvss_severity, 'UNKNOWN') FROM wiz_vulnerabilities ORDER BY 1",
+        "multi": true, "includeAll": true, "refresh": 1, "sort": 1,
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]},
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 90, "title": "Scope, Filters & Data Limitations", "type": "text",
+      "gridPos": {"h": 4, "w": 24, "x": 0, "y": 0},
+      "options": {
+        "mode": "markdown",
+        "content": "**AWS Environment + Wiz Severity** filter all finding panels (Critical through Low). **NVD CVSS Severity** is an additional filter for the CVE section only.\n\n**Security Overview:** OPEN Risk/Posture issues, not individual vulnerability findings. **Categories:** OPEN records by source; categories have different granularities. **CVE & Remediation:** OPEN + IN_PROGRESS vulnerabilities. **Cloud Assets:** affected resources, not total inventory. Exposure uses rule-name matching, not verified reachability.\n\nCurrent counts ignore the time picker; trend charts use actual collected snapshots in the selected time range. CI/CD remains explicitly unavailable. Remediation age is days since detection, not resolved MTTR; SLA deadlines/compliance are not calculated without targets."
+      }
+    },
+    {
+      "id": 91, "title": "Collection Coverage & Freshness", "type": "table",
+      "gridPos": {"h": 5, "w": 24, "x": 0, "y": 4},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "description": "Global collection status, independent of filters. Failed syncs preserve the last committed data. Missing CI/CD data is not zero.",
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT category AS \"Category\", CASE WHEN available THEN 'Available' ELSE 'UNAVAILABLE' END AS \"Coverage\", last_success_at AS \"Last successful collection\", detail AS \"Details\" FROM wiz_collection_status ORDER BY category;"
+      }],
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "options": {"showHeader": true, "cellHeight": "sm"}
+    },
+    {
+      "id": 100, "title": "SECURITY OVERVIEW — Open Risk & Posture Issues",
+      "type": "row", "collapsed": false, "panels": [],
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 9}
+    },
+    {
+      "id": 1, "title": "Critical Issues", "type": "stat",
+      "description": "OPEN AWS Risk/Posture issues of CRITICAL severity. Does not mix individual vulnerability findings into issue counts.",
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 10},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT COUNT(*) AS \"Critical issues\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND category IN ('Risk Issues','Posture Issues') AND severity = 'CRITICAL' AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring});"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "red"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 2, "title": "High Issues", "type": "stat",
+      "description": "OPEN AWS Risk/Posture issues of HIGH severity.",
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 10},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT COUNT(*) AS \"High issues\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND category IN ('Risk Issues','Posture Issues') AND severity = 'HIGH' AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring});"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "orange"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 3, "title": "Cloud Assets", "type": "stat",
+      "description": "Distinct identified resources affected by selected OPEN AWS Risk/Posture issues. Not a count of total cloud inventory.",
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 10},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT COUNT(DISTINCT resource_id) AS \"Affected resources\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND category IN ('Risk Issues','Posture Issues') AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring});"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "blue"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 4, "title": "Exposed Assets (Rule Matches)", "type": "stat",
+      "description": "Shows both distinct identified resources and OPEN Risk/Posture issue counts where rule names contain internet, public or exposed. A rule-name heuristic, not verified exposure or complete internet-facing asset inventory.",
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 10},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT COUNT(DISTINCT resource_id) AS \"Assets\", COUNT(*) AS \"Open issues\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND category IN ('Risk Issues','Posture Issues') AND rule_name ~* '(internet|public|exposed)' AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring});"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "purple"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 5, "title": "Issues by Severity", "type": "piechart",
+      "gridPos": {"h": 9, "w": 10, "x": 0, "y": 15},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT severity AS \"Severity\", COUNT(*) AS \"Issues\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND category IN ('Risk Issues','Posture Issues') AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring}) GROUP BY severity ORDER BY CASE severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 ELSE 4 END;"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "palette-classic"}}, "overrides": []},
+      "options": {"pieType": "donut", "displayLabels": ["name", "percent"], "legend": {"showLegend": true, "displayMode": "table", "placement": "right", "values": ["value", "percent"]}, "tooltip": {"mode": "single", "sort": "none"}, "reduceOptions": {"values": true, "calcs": ["lastNotNull"], "fields": "/^Issues$/"}}
+    },
+    {
+      "id": 6, "title": "Open Issues Trend – Last 30 Days", "type": "timeseries",
+      "description": "Risk/Posture OPEN counts by severity from actual snapshots. Default range is 30 days; changing the time picker changes this chart. No pre-collection history is fabricated.",
+      "gridPos": {"h": 9, "w": 14, "x": 10, "y": 15},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "time_series", "rawQuery": true,
+        "rawSql": "SELECT captured_at AS \"time\", severity AS metric, SUM(issue_count)::double precision AS value FROM wiz_snapshots WHERE $__timeFilter(captured_at) AND cloud_platform = 'AWS' AND category IN ('Risk Issues','Posture Issues') AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring}) GROUP BY captured_at, severity ORDER BY captured_at, severity;"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 8, "showPoints": "always", "pointSize": 5, "spanNulls": false}}, "overrides": []},
+      "options": {"legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 7, "title": "Issues by Cloud Account", "type": "barchart",
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 24},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT subscription_name AS \"Environment\", severity AS \"Severity\", COUNT(*) AS \"Issues\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND category IN ('Risk Issues','Posture Issues') AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring}) GROUP BY subscription_name, severity ORDER BY subscription_name, severity;"
+      }],
+      "transformations": [{"id": "groupingToMatrix", "options": {"rowField": "Environment", "columnField": "Severity", "valueField": "Issues"}}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "palette-classic"}}, "overrides": []},
+      "options": {"orientation": "horizontal", "stacking": "normal", "showValue": "auto", "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 8, "title": "Top Risky Resources", "type": "table",
+      "description": "Top 20 resources ranked by OPEN Critical then High Risk/Posture issue counts, within selected AWS accounts and Wiz severities.",
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 24},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT subscription_name AS \"Environment\", resource_id AS \"Resource ID\", MAX(resource_name) AS \"Resource\", MAX(resource_type) AS \"Type\", COUNT(*) FILTER (WHERE severity = 'CRITICAL') AS \"Critical\", COUNT(*) FILTER (WHERE severity = 'HIGH') AS \"High\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND category IN ('Risk Issues','Posture Issues') AND resource_id IS NOT NULL AND severity IN ('CRITICAL','HIGH') AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring}) GROUP BY subscription_name, resource_id ORDER BY \"Critical\" DESC, \"High\" DESC, subscription_name, resource_id LIMIT 20;"
+      }],
+      "fieldConfig": {"defaults": {"custom": {"filterable": true}}, "overrides": []},
+      "options": {"showHeader": true, "cellHeight": "sm"}
+    },
+    {
+      "id": 9, "title": "Recent Detections", "type": "logs",
+      "description": "50 most recent OPEN AWS Risk/Posture issues with actual environment, resource and rule metadata.",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 34},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT created_at AS \"time\", CONCAT('[', severity, '] environment=', subscription_name, ' category=', category, ' resource=', COALESCE(resource_name, resource_id, '(unknown)'), ' rule=', COALESCE(NULLIF(rule_name,''), '(not supplied)')) AS body FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND category IN ('Risk Issues','Posture Issues') AND created_at IS NOT NULL AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring}) ORDER BY created_at DESC, id LIMIT 50;"
+      }],
+      "options": {"showTime": true, "showLabels": false, "showCommonLabels": false, "wrapLogMessage": true, "prettifyLogMessage": false, "enableLogDetails": true, "sortOrder": "Descending", "dedupStrategy": "none"}
+    },
+    {
+      "id": 200, "title": "ENVIRONMENTS & SECURITY CATEGORIES — Open Findings",
+      "type": "row", "collapsed": false, "panels": [],
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 44}
+    },
+    {
+      "id": 11, "title": "Vulnerability Management", "type": "stat",
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 45},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT CASE WHEN (SELECT available FROM wiz_collection_status WHERE category = 'Vulnerability Management') THEN COUNT(*) ELSE NULL END AS \"Open findings\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND category = 'Vulnerability Management' AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring});"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "noValue": "Unavailable", "color": {"mode": "fixed", "fixedColor": "orange"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 12, "title": "Risk Issues", "type": "stat",
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 45},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT CASE WHEN (SELECT available FROM wiz_collection_status WHERE category = 'Risk Issues') THEN COUNT(*) ELSE NULL END AS \"Open issues\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND category = 'Risk Issues' AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring});"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "noValue": "Unavailable", "color": {"mode": "fixed", "fixedColor": "red"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 13, "title": "Posture Issues", "type": "stat",
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 45},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT CASE WHEN (SELECT available FROM wiz_collection_status WHERE category = 'Posture Issues') THEN COUNT(*) ELSE NULL END AS \"Open issues\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND category = 'Posture Issues' AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring});"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "noValue": "Unavailable", "color": {"mode": "fixed", "fixedColor": "blue"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 14, "title": "CI/CD Scans", "type": "stat",
+      "description": "Missing read:security_scans permission; unavailable data is not reported as zero.",
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 45},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT CASE WHEN (SELECT available FROM wiz_collection_status WHERE category = 'CI/CD Scans') THEN COUNT(*) ELSE NULL END AS \"Open findings\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND category = 'CI/CD Scans' AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring});"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "noValue": "Unavailable", "color": {"mode": "fixed", "fixedColor": "purple"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 15, "title": "Categories by AWS Environment", "type": "barchart",
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 50},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT subscription_name AS \"Environment\", category AS \"Category\", COUNT(*) AS \"Open findings\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring}) GROUP BY subscription_name, category ORDER BY subscription_name, category;"
+      }],
+      "transformations": [{"id": "groupingToMatrix", "options": {"rowField": "Environment", "columnField": "Category", "valueField": "Open findings"}}],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "palette-classic"}}, "overrides": []},
+      "options": {"orientation": "horizontal", "stacking": "normal", "showValue": "auto", "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 16, "title": "Severity Breakdown by Category", "type": "barchart",
+      "description": "Critical, High and Medium OPEN findings; also respects the selected Wiz severity filter.",
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 50},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT category AS \"Category\", COUNT(*) FILTER (WHERE severity = 'CRITICAL') AS \"CRITICAL\", COUNT(*) FILTER (WHERE severity = 'HIGH') AS \"HIGH\", COUNT(*) FILTER (WHERE severity = 'MEDIUM') AS \"MEDIUM\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring}) AND severity IN ('CRITICAL','HIGH','MEDIUM') GROUP BY category ORDER BY category;"
+      }],
+      "fieldConfig": {
+        "defaults": {"unit": "short", "decimals": 0},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "CRITICAL"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "red"}}]},
+          {"matcher": {"id": "byName", "options": "HIGH"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]},
+          {"matcher": {"id": "byName", "options": "MEDIUM"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "yellow"}}]}
+        ]
+      },
+      "options": {"orientation": "vertical", "stacking": "normal", "showValue": "auto", "legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 17, "title": "Category Trends Over Time", "type": "timeseries",
+      "description": "Actual periodic OPEN-finding snapshots. Unavailable CI/CD and uncollected history are not filled with invented zeros.",
+      "gridPos": {"h": 9, "w": 12, "x": 0, "y": 60},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "time_series", "rawQuery": true,
+        "rawSql": "SELECT captured_at AS \"time\", category AS metric, SUM(issue_count)::double precision AS value FROM wiz_snapshots WHERE $__timeFilter(captured_at) AND cloud_platform = 'AWS' AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring}) GROUP BY captured_at, category ORDER BY captured_at, category;"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "fillOpacity": 8, "showPoints": "always", "pointSize": 5, "spanNulls": false}}, "overrides": []},
+      "options": {"legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 18, "title": "Top Triggered Rules by Category", "type": "barchart",
+      "gridPos": {"h": 9, "w": 12, "x": 12, "y": 60},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT category || ' | ' || COALESCE(NULLIF(rule_name,''), '(unnamed)') AS \"Category / Rule\", COUNT(*) AS \"Open findings\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring}) GROUP BY category, rule_name ORDER BY \"Open findings\" DESC, category, rule_name LIMIT 10;"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "orange"}}, "overrides": []},
+      "options": {"orientation": "horizontal", "stacking": "none", "showValue": "auto", "legend": {"showLegend": false}, "tooltip": {"mode": "single", "sort": "none"}}
+    },
+    {
+      "id": 19, "title": "Filtered Findings Table", "type": "table",
+      "description": "Up to 1,000 most recent matching OPEN findings. Counts and charts cover all matching records.",
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 69},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT created_at AS \"Detection Date\", subscription_name AS \"Environment\", category AS \"Category\", severity AS \"Wiz Severity\", rule_name AS \"Rule\", resource_name AS \"Resource\", resource_type AS \"Resource Type\" FROM wiz_active_issues WHERE is_active AND status = 'OPEN' AND cloud_platform = 'AWS' AND subscription_name IN (${environment:sqlstring}) AND severity IN (${severity:sqlstring}) ORDER BY created_at DESC NULLS LAST, id LIMIT 1000;"
+      }],
+      "fieldConfig": {"defaults": {"noValue": "Not supplied", "custom": {"filterable": true}}, "overrides": []},
+      "options": {"showHeader": true, "cellHeight": "sm", "footer": {"show": false}}
+    },
+    {
+      "id": 300, "title": "CVE & REMEDIATION MANAGEMENT — Active Vulnerability Findings",
+      "type": "row", "collapsed": false, "panels": [],
+      "gridPos": {"h": 1, "w": 24, "x": 0, "y": 81}
+    },
+    {
+      "id": 21, "title": "Total Vulnerable Packages", "type": "stat",
+      "description": "Distinct resource/package/installed-version combinations with OPEN or IN_PROGRESS findings. Missing resource IDs/package names are excluded; multiple CVEs in one installed package do not multiply the package count.",
+      "gridPos": {"h": 5, "w": 8, "x": 0, "y": 82},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT COUNT(DISTINCT (a.resource_id, v.package_name, v.installed_version)) AS \"Vulnerable packages\" FROM wiz_vulnerabilities v JOIN wiz_active_issues a ON a.id = v.finding_id WHERE a.is_active AND a.status IN ('OPEN','IN_PROGRESS') AND a.cloud_platform = 'AWS' AND a.resource_id IS NOT NULL AND NULLIF(v.package_name,'') IS NOT NULL AND a.subscription_name IN (${environment:sqlstring}) AND a.severity IN (${severity:sqlstring}) AND COALESCE(v.cvss_severity,'UNKNOWN') IN (${cvss_severity:sqlstring});"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "orange"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 22, "title": "Mean Remediation Age (Days Open)", "type": "stat",
+      "description": "Finding-weighted mean days since first detection for OPEN + IN_PROGRESS vulnerabilities. Missing detection dates are excluded. Not MTTR or an SLA compliance percentage.",
+      "gridPos": {"h": 5, "w": 8, "x": 8, "y": 82},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT AVG(EXTRACT(EPOCH FROM (NOW() - a.created_at)) / 86400.0)::double precision AS \"Days open\" FROM wiz_vulnerabilities v JOIN wiz_active_issues a ON a.id = v.finding_id WHERE a.is_active AND a.status IN ('OPEN','IN_PROGRESS') AND a.cloud_platform = 'AWS' AND a.subscription_name IN (${environment:sqlstring}) AND a.severity IN (${severity:sqlstring}) AND COALESCE(v.cvss_severity,'UNKNOWN') IN (${cvss_severity:sqlstring});"
+      }],
+      "fieldConfig": {"defaults": {"unit": "suffix: days", "decimals": 1, "noValue": "No detection dates", "color": {"mode": "fixed", "fixedColor": "blue"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 23, "title": "Count of Known Exploited CVEs", "type": "stat",
+      "description": "Distinct active CVEs with hasCisaKevExploit=true (CISA KEV). Public exploit availability alone is not sufficient.",
+      "gridPos": {"h": 5, "w": 8, "x": 16, "y": 82},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT COUNT(DISTINCT v.cve_id) AS \"Known exploited CVEs\" FROM wiz_vulnerabilities v JOIN wiz_active_issues a ON a.id = v.finding_id WHERE a.is_active AND a.status IN ('OPEN','IN_PROGRESS') AND a.cloud_platform = 'AWS' AND v.known_exploited IS TRUE AND a.subscription_name IN (${environment:sqlstring}) AND a.severity IN (${severity:sqlstring}) AND COALESCE(v.cvss_severity,'UNKNOWN') IN (${cvss_severity:sqlstring});"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "red"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 24, "title": "Top Vulnerable CVEs / Packages", "type": "barchart",
+      "description": "Top 15 CVE/package pairs by active finding count. Non-CVE advisories remain in the action table and package/aging metrics.",
+      "gridPos": {"h": 11, "w": 14, "x": 0, "y": 87},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT v.cve_id || ' | ' || COALESCE(v.package_name,'(unknown package)') AS \"CVE / Package\", COUNT(*) AS \"Active findings\" FROM wiz_vulnerabilities v JOIN wiz_active_issues a ON a.id = v.finding_id WHERE a.is_active AND a.status IN ('OPEN','IN_PROGRESS') AND a.cloud_platform = 'AWS' AND v.cve_id IS NOT NULL AND a.subscription_name IN (${environment:sqlstring}) AND a.severity IN (${severity:sqlstring}) AND COALESCE(v.cvss_severity,'UNKNOWN') IN (${cvss_severity:sqlstring}) GROUP BY v.cve_id, v.package_name ORDER BY \"Active findings\" DESC, v.cve_id, v.package_name LIMIT 15;"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "orange"}}, "overrides": []},
+      "options": {"orientation": "horizontal", "stacking": "none", "showValue": "auto", "legend": {"showLegend": false}, "tooltip": {"mode": "single", "sort": "none"}}
+    },
+    {
+      "id": 25, "title": "Vulnerabilities by Asset Type", "type": "piechart",
+      "description": "Counts active findings, not unique assets. VM images are grouped with VMs and container images with containers. Kubernetes-managed workloads appear as containers when identified as such; no Kubernetes attribution is inferred.",
+      "gridPos": {"h": 11, "w": 10, "x": 14, "y": 87},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT CASE WHEN a.resource_type IN ('VIRTUAL_MACHINE','VIRTUAL_MACHINE_IMAGE') THEN 'VMs / VM Images' WHEN a.resource_type IN ('CONTAINER','CONTAINER_IMAGE') THEN 'Containers / Images' ELSE COALESCE(a.resource_type,'Unknown') END AS \"Asset type\", COUNT(*) AS \"Findings\" FROM wiz_vulnerabilities v JOIN wiz_active_issues a ON a.id = v.finding_id WHERE a.is_active AND a.status IN ('OPEN','IN_PROGRESS') AND a.cloud_platform = 'AWS' AND a.subscription_name IN (${environment:sqlstring}) AND a.severity IN (${severity:sqlstring}) AND COALESCE(v.cvss_severity,'UNKNOWN') IN (${cvss_severity:sqlstring}) GROUP BY 1 ORDER BY \"Findings\" DESC, \"Asset type\";"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "palette-classic"}}, "overrides": []},
+      "options": {"pieType": "donut", "displayLabels": ["name", "percent"], "legend": {"showLegend": true, "displayMode": "table", "placement": "bottom", "values": ["value", "percent"]}, "tooltip": {"mode": "single", "sort": "desc"}, "reduceOptions": {"values": true, "calcs": ["lastNotNull"], "fields": "/^Findings$/"}}
+    },
+    {
+      "id": 26, "title": "Remediation Action Table", "type": "table",
+      "description": "Top 1,000 active findings ranked by NVD CVSS score, unknown scores last. Fixed version and exploitation metadata stay unknown when not supplied. Other panels count all matching records.",
+      "gridPos": {"h": 15, "w": 24, "x": 0, "y": 98},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A", "format": "table", "rawQuery": true,
+        "rawSql": "SELECT v.cve_id AS \"CVE ID\", v.vulnerability_id AS \"Advisory ID\", v.cvss_score AS \"CVSS Score\", COALESCE(v.cvss_severity,'UNKNOWN') AS \"CVSS Severity\", a.severity AS \"Wiz Severity\", v.package_name AS \"Package Name\", v.installed_version AS \"Installed Version\", v.fixed_version AS \"Fixed Version\", a.resource_name AS \"Resource Name\", a.resource_type AS \"Resource Type\", a.subscription_name AS \"Environment\", a.created_at AS \"Detection Date\", (EXTRACT(EPOCH FROM (NOW() - a.created_at)) / 86400.0)::double precision AS \"Days Open\", v.exploit_available AS \"Public Exploit\", v.known_exploited AS \"CISA KEV\", v.package_path AS \"Package Path\" FROM wiz_vulnerabilities v JOIN wiz_active_issues a ON a.id = v.finding_id WHERE a.is_active AND a.status IN ('OPEN','IN_PROGRESS') AND a.cloud_platform = 'AWS' AND a.subscription_name IN (${environment:sqlstring}) AND a.severity IN (${severity:sqlstring}) AND COALESCE(v.cvss_severity,'UNKNOWN') IN (${cvss_severity:sqlstring}) ORDER BY v.cvss_score DESC NULLS LAST, a.created_at ASC NULLS LAST, a.id LIMIT 1000;"
+      }],
+      "fieldConfig": {
+        "defaults": {"noValue": "Unknown / not supplied", "custom": {"filterable": true}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "CVSS Score"}, "properties": [{"id": "decimals", "value": 1}, {"id": "min", "value": 0}, {"id": "max", "value": 10}, {"id": "thresholds", "value": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 4}, {"color": "orange", "value": 7}, {"color": "red", "value": 9}]}}, {"id": "color", "value": {"mode": "thresholds"}}, {"id": "custom.cellOptions", "value": {"type": "color-text"}}]},
+          {"matcher": {"id": "byName", "options": "Days Open"}, "properties": [{"id": "decimals", "value": 1}, {"id": "unit", "value": "suffix: days"}]}
+        ]
+      },
+      "options": {"showHeader": true, "cellHeight": "sm", "footer": {"show": false}}
+    }
+  ]
+}
