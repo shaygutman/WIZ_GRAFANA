@@ -1,0 +1,214 @@
+{
+  "uid": "wiz-time-range-resource-drilldown",
+  "title": "WIZ – TIME-RANGE & RESOURCE DRILLDOWN",
+  "description": "Time-range vulnerability lifecycle drilldown. Opening and ending balances are reconstructed from recorded creation and resolution timestamps; daily open balance is the opening count plus cumulative additions minus resolutions. Missing resolution timestamps are not inferred.",
+  "tags": ["wiz", "drilldown", "prod"],
+  "timezone": "utc",
+  "schemaVersion": 40,
+  "version": 1,
+  "style": "dark",
+  "editable": false,
+  "refresh": "1m",
+  "time": {"from": "now-30d", "to": "now"},
+  "timepicker": {},
+  "annotations": {
+    "list": [
+      {
+        "name": "Deployments & Maintenance Events",
+        "datasource": {"type": "postgres", "uid": "postgres"},
+        "enable": true,
+        "hide": false,
+        "iconColor": "#5794F2",
+        "target": {
+          "refId": "Annotation",
+          "format": "table",
+          "rawQuery": true,
+          "editorMode": "code",
+          "rawSql": "SELECT event_time AS time, title, description AS text, tags FROM wiz_annotations WHERE $__timeFilter(event_time);"
+        }
+      }
+    ]
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "environment",
+        "label": "Environment",
+        "type": "query",
+        "datasource": {"type": "postgres", "uid": "postgres"},
+        "definition": "SELECT DISTINCT subscription_name FROM wiz_active_issues ORDER BY 1;",
+        "query": "SELECT DISTINCT subscription_name FROM wiz_active_issues ORDER BY 1;",
+        "multi": true,
+        "includeAll": true,
+        "refresh": 1,
+        "sort": 1,
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]},
+        "options": []
+      },
+      {
+        "name": "resource_name",
+        "label": "Resource",
+        "type": "query",
+        "datasource": {"type": "postgres", "uid": "postgres"},
+        "definition": "SELECT DISTINCT resource_name FROM wiz_active_issues WHERE subscription_name IN (${environment:sqlstring}) AND resource_name IS NOT NULL ORDER BY 1;",
+        "query": "SELECT DISTINCT resource_name FROM wiz_active_issues WHERE subscription_name IN (${environment:sqlstring}) AND resource_name IS NOT NULL ORDER BY 1;",
+        "multi": true,
+        "includeAll": true,
+        "allValue": "ALL",
+        "refresh": 2,
+        "sort": 1,
+        "current": {"selected": true, "text": ["All"], "value": ["$__all"]},
+        "options": []
+      },
+      {
+        "name": "severity",
+        "label": "Severity",
+        "type": "custom",
+        "query": "ALL,CRITICAL,HIGH,MEDIUM,LOW",
+        "multi": true,
+        "includeAll": false,
+        "current": {"selected": true, "text": ["ALL"], "value": ["ALL"]},
+        "options": [
+          {"text": "ALL", "value": "ALL", "selected": true},
+          {"text": "CRITICAL", "value": "CRITICAL", "selected": false},
+          {"text": "HIGH", "value": "HIGH", "selected": false},
+          {"text": "MEDIUM", "value": "MEDIUM", "selected": false},
+          {"text": "LOW", "value": "LOW", "selected": false}
+        ]
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Starting Vulnerabilities",
+      "description": "Findings created before the selected range that were still open at its start, including findings resolved later in the range.",
+      "type": "stat",
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A",
+        "format": "table",
+        "rawQuery": true,
+        "editorMode": "code",
+        "rawSql": "SELECT COUNT(*) AS \"Starting vulnerabilities\" FROM wiz_active_issues WHERE created_at < $__timeFrom() AND (status IN ('OPEN', 'IN_PROGRESS') OR (status = 'RESOLVED' AND resolved_at > $__timeFrom())) AND subscription_name IN (${environment:sqlstring}) AND ('ALL' IN (${resource_name:sqlstring}) OR resource_name IN (${resource_name:sqlstring})) AND ('ALL' IN (${severity:sqlstring}) OR severity IN (${severity:sqlstring}));"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "blue"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 2,
+      "title": "Added in Period",
+      "description": "Findings created within the selected time range, including those subsequently resolved.",
+      "type": "stat",
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A",
+        "format": "table",
+        "rawQuery": true,
+        "editorMode": "code",
+        "rawSql": "SELECT COUNT(*) AS \"Added\" FROM wiz_active_issues WHERE $__timeFilter(created_at) AND subscription_name IN (${environment:sqlstring}) AND ('ALL' IN (${resource_name:sqlstring}) OR resource_name IN (${resource_name:sqlstring})) AND ('ALL' IN (${severity:sqlstring}) OR severity IN (${severity:sqlstring}));"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "orange"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 3,
+      "title": "Resolved in Period",
+      "description": "Findings with status RESOLVED and an actual resolution timestamp in the selected time range.",
+      "type": "stat",
+      "gridPos": {"h": 5, "w": 6, "x": 12, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A",
+        "format": "table",
+        "rawQuery": true,
+        "editorMode": "code",
+        "rawSql": "SELECT COUNT(*) AS \"Resolved\" FROM wiz_active_issues WHERE status = 'RESOLVED' AND $__timeFilter(resolved_at) AND subscription_name IN (${environment:sqlstring}) AND ('ALL' IN (${resource_name:sqlstring}) OR resource_name IN (${resource_name:sqlstring})) AND ('ALL' IN (${severity:sqlstring}) OR severity IN (${severity:sqlstring}));"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "fixed", "fixedColor": "green"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 4,
+      "title": "Net Change & Ending Total",
+      "description": "Net change equals added minus resolved in the selected range. Ending total reconstructs the open balance at the range end.",
+      "type": "stat",
+      "gridPos": {"h": 5, "w": 6, "x": 18, "y": 0},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A",
+        "format": "table",
+        "rawQuery": true,
+        "editorMode": "code",
+        "rawSql": "WITH scoped AS (SELECT status, created_at, resolved_at FROM wiz_active_issues WHERE subscription_name IN (${environment:sqlstring}) AND ('ALL' IN (${resource_name:sqlstring}) OR resource_name IN (${resource_name:sqlstring})) AND ('ALL' IN (${severity:sqlstring}) OR severity IN (${severity:sqlstring}))), added AS (SELECT COUNT(*) AS n FROM scoped WHERE created_at IS NOT NULL AND created_at BETWEEN $__timeFrom() AND $__timeTo()), resolved AS (SELECT COUNT(*) AS n FROM scoped WHERE status = 'RESOLVED' AND resolved_at IS NOT NULL AND resolved_at BETWEEN $__timeFrom() AND $__timeTo()), ending AS (SELECT COUNT(*) AS n FROM scoped WHERE created_at <= $__timeTo() AND (status IN ('OPEN', 'IN_PROGRESS') OR (status = 'RESOLVED' AND resolved_at > $__timeTo()))) SELECT (added.n - resolved.n)::bigint AS \"Net Change\", ending.n::bigint AS \"Ending Total\" FROM added, resolved, ending;"
+      }],
+      "fieldConfig": {"defaults": {"unit": "short", "decimals": 0, "color": {"mode": "palette-classic"}}, "overrides": []},
+      "options": {"colorMode": "value", "graphMode": "none", "reduceOptions": {"values": true, "calcs": ["lastNotNull"], "fields": ""}}
+    },
+    {
+      "id": 5,
+      "title": "Open vs. Added vs. Resolved Daily Flow",
+      "description": "Daily additions and remediations use their actual event timestamps. Open is the reconstructed end-of-day balance: starting balance plus cumulative additions minus resolutions in the selected range.",
+      "type": "timeseries",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 5},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A",
+        "format": "time_series",
+        "rawQuery": true,
+        "editorMode": "code",
+        "rawSql": "WITH scoped AS (SELECT status, created_at, resolved_at FROM wiz_active_issues WHERE subscription_name IN (${environment:sqlstring}) AND ('ALL' IN (${resource_name:sqlstring}) OR resource_name IN (${resource_name:sqlstring})) AND ('ALL' IN (${severity:sqlstring}) OR severity IN (${severity:sqlstring}))), opening AS (SELECT COUNT(*)::bigint AS n FROM scoped WHERE created_at < $__timeFrom() AND (status IN ('OPEN', 'IN_PROGRESS') OR (status = 'RESOLVED' AND resolved_at > $__timeFrom()))), calendar AS (SELECT generate_series(DATE_TRUNC('day', $__timeFrom()::timestamptz), DATE_TRUNC('day', $__timeTo()::timestamptz), INTERVAL '1 day') AS day), added AS (SELECT DATE_TRUNC('day', created_at) AS day, COUNT(*)::bigint AS n FROM scoped WHERE $__timeFilter(created_at) GROUP BY 1), resolved AS (SELECT DATE_TRUNC('day', resolved_at) AS day, COUNT(*)::bigint AS n FROM scoped WHERE status = 'RESOLVED' AND $__timeFilter(resolved_at) GROUP BY 1), flow AS (SELECT calendar.day, COALESCE(added.n, 0) AS additions, COALESCE(resolved.n, 0) AS remediations FROM calendar LEFT JOIN added USING (day) LEFT JOIN resolved USING (day)) SELECT day AS \"time\", 'Open' AS metric, (SELECT n FROM opening) + SUM(additions - remediations) OVER (ORDER BY day)::double precision AS value FROM flow UNION ALL SELECT day AS \"time\", 'Added' AS metric, additions::double precision AS value FROM flow UNION ALL SELECT day AS \"time\", 'Resolved' AS metric, remediations::double precision AS value FROM flow ORDER BY 1, 2;"
+      }],
+      "fieldConfig": {
+        "defaults": {"unit": "short", "decimals": 0, "min": 0, "color": {"mode": "palette-classic"}, "custom": {"drawStyle": "line", "lineWidth": 2, "fillOpacity": 8, "showPoints": "auto", "spanNulls": false}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "Open"}, "properties": [{"id": "custom.lineInterpolation", "value": "stepAfter"}, {"id": "custom.lineWidth", "value": 3}]},
+          {"matcher": {"id": "byName", "options": "Added"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "orange"}}]},
+          {"matcher": {"id": "byName", "options": "Resolved"}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]}
+        ]
+      },
+      "options": {"legend": {"showLegend": true, "displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi", "sort": "desc"}}
+    },
+    {
+      "id": 6,
+      "title": "Newly Added Vulnerabilities / Issues in Selected Range",
+      "description": "Findings first created in the selected range, including rows that have since been resolved.",
+      "type": "table",
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 15},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A",
+        "format": "table",
+        "rawQuery": true,
+        "editorMode": "code",
+        "rawSql": "SELECT a.created_at AS \"Created At\", a.subscription_name AS \"Environment\", a.resource_name AS \"Resource\", a.severity AS \"Severity\", COALESCE(NULLIF(a.rule_name, ''), NULLIF(v.cve_id, ''), NULLIF(v.vulnerability_id, ''), '(unknown)') AS \"Rule / CVE Name\", a.status AS \"Status\" FROM wiz_active_issues a LEFT JOIN wiz_vulnerabilities v ON v.finding_id = a.id WHERE $__timeFilter(a.created_at) AND a.subscription_name IN (${environment:sqlstring}) AND ('ALL' IN (${resource_name:sqlstring}) OR a.resource_name IN (${resource_name:sqlstring})) AND ('ALL' IN (${severity:sqlstring}) OR a.severity IN (${severity:sqlstring})) ORDER BY a.created_at DESC, a.id;"
+      }],
+      "fieldConfig": {"defaults": {"custom": {"align": "auto", "filterable": true}}, "overrides": []},
+      "options": {"showHeader": true, "cellHeight": "sm", "footer": {"show": false}}
+    },
+    {
+      "id": 7,
+      "title": "Successfully Resolved Vulnerabilities / Issues in Selected Range",
+      "description": "Resolved findings by actual resolution time. Lifecycle duration is calculated from recorded creation and resolution timestamps; rows missing either timestamp have no duration.",
+      "type": "table",
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 27},
+      "datasource": {"type": "postgres", "uid": "postgres"},
+      "targets": [{
+        "refId": "A",
+        "format": "table",
+        "rawQuery": true,
+        "editorMode": "code",
+        "rawSql": "SELECT a.resolved_at AS \"Resolved At\", a.created_at AS \"Created At\", (EXTRACT(EPOCH FROM (a.resolved_at - a.created_at)) / 86400.0)::double precision AS \"Lifecycle (days)\", a.subscription_name AS \"Environment\", a.resource_name AS \"Resource\", a.severity AS \"Severity\", COALESCE(NULLIF(a.rule_name, ''), NULLIF(v.cve_id, ''), NULLIF(v.vulnerability_id, ''), '(unknown)') AS \"Rule / CVE Name\" FROM wiz_active_issues a LEFT JOIN wiz_vulnerabilities v ON v.finding_id = a.id WHERE a.status = 'RESOLVED' AND $__timeFilter(a.resolved_at) AND a.subscription_name IN (${environment:sqlstring}) AND ('ALL' IN (${resource_name:sqlstring}) OR a.resource_name IN (${resource_name:sqlstring})) AND ('ALL' IN (${severity:sqlstring}) OR a.severity IN (${severity:sqlstring})) ORDER BY a.resolved_at DESC, a.id;"
+      }],
+      "fieldConfig": {
+        "defaults": {"custom": {"align": "auto", "filterable": true}},
+        "overrides": [
+          {"matcher": {"id": "byName", "options": "Lifecycle (days)"}, "properties": [{"id": "decimals", "value": 1}, {"id": "unit", "value": "suffix: days"}]}
+        ]
+      },
+      "options": {"showHeader": true, "cellHeight": "sm", "footer": {"show": false}}
+    }
+  ]
+}
