@@ -5,6 +5,13 @@
   "tags": ["wiz", "overview"],
   "links": [
     {
+      "title": "Run manual scan",
+      "type": "link",
+      "icon": "external link",
+      "url": "http://localhost:8085/scan",
+      "targetBlank": true
+    },
+    {
       "title": "Wiz Dashboards",
       "type": "dashboards",
       "tags": ["wiz"],

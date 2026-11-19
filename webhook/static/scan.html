@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wiz | Manual security scan</title>
+  <link rel="stylesheet" href="/scan-assets/scan.css">
+  <script src="/scan-assets/scan.js" defer></script>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">WIZ / SECURITY OPERATIONS</p>
+      <h1>Run a manual security scan</h1>
+      <p>Choose an AWS environment and scan one EC2 instance or every active EC2 instance in it.</p>
+    </header>
+    <section class="notice">
+      This starts a real backend scan in Wiz, not a collector refresh.
+      The Wiz service account needs <code>read:resources</code> and <code>create:security_scans</code>.
+      Access errors are shown below; no audit-only fallback is used.
+    </section>
+    <form id="scan-form">
+      <fieldset id="authentication">
+        <legend>1. Connect</legend>
+        <label for="api-key">Webhook API key</label>
+        <div class="connect-row">
+          <input id="api-key" type="password" autocomplete="off" spellcheck="false"
+                 placeholder="Enter ANNOTATION_WEBHOOK_TOKEN" required>
+          <button id="connect" type="button">Load environments</button>
+        </div>
+        <p class="hint">Never saved in browser storage or dashboard JSON. Use HTTPS or a trusted network for remote access.</p>
+      </fieldset>
+      <fieldset>
+        <legend>2. Select the scan target</legend>
+        <label for="environment">Environment / AWS account</label>
+        <select id="environment" disabled>
+          <option value="">Connect to load environments</option>
+        </select>
+        <div class="scope">
+          <label><input type="radio" name="scope" value="resource" checked> One resource</label>
+          <label><input type="radio" name="scope" value="environment"> Entire environment</label>
+        </div>
+        <label id="resource-label" for="resource">EC2 instance</label>
+        <select id="resource" disabled>
+          <option value="">Select an environment first</option>
+        </select>
+        <p id="inventory" class="hint">Targets are loaded from live Wiz inventory. Inactive instances and Auto Scaling representative records are excluded.</p>
+      </fieldset>
+      <div class="actions">
+        <button id="run-scan" type="submit" disabled>Start manual scan</button>
+        <span class="hint">You will confirm the scope before any scan is submitted.</span>
+      </div>
+    </form>
+    <section id="feedback" aria-live="polite" hidden>
+      <h2 id="feedback-title"></h2>
+      <p id="feedback-message"></p>
+      <ul id="outcomes"></ul>
+    </section>
+    <footer>
+      Accepted requests are not completed scans. Check Wiz for scan results.
+      Scan submissions and failures are recorded as Grafana annotations.
+      Close this tab to return to your dashboard.
+    </footer>
+  </main>
+</body>
+</html>

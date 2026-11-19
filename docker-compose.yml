@@ -39,6 +39,38 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  webhook_api:
+    build:
+      context: ./webhook
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-wiz_monitor}
+      POSTGRES_USER: ${POSTGRES_USER:-wiz_monitor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      ANNOTATION_WEBHOOK_TOKEN: ${ANNOTATION_WEBHOOK_TOKEN:?Set ANNOTATION_WEBHOOK_TOKEN in .env}
+      WIZ_API_URL: ${WIZ_API_URL:?Set WIZ_API_URL in .env}
+      WIZ_AUTH_URL: ${WIZ_AUTH_URL:-https://auth.app.wiz.io/oauth/token}
+      WIZ_CLIENT_ID: ${WIZ_CLIENT_ID:?Set WIZ_CLIENT_ID in .env}
+      WIZ_CLIENT_SECRET: ${WIZ_CLIENT_SECRET:?Set WIZ_CLIENT_SECRET in .env}
+      WIZ_AUDIENCE: ${WIZ_AUDIENCE:-wiz-api}
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8085/health', timeout=3).close()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:11.5.2
     ports:
