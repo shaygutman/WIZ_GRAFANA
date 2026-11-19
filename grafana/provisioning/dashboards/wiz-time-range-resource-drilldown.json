@@ -54,7 +54,7 @@
         "query": "SELECT DISTINCT resource_name FROM wiz_active_issues WHERE subscription_name IN (${environment:sqlstring}) AND resource_name IS NOT NULL ORDER BY 1;",
         "multi": true,
         "includeAll": true,
-        "allValue": "ALL",
+        "allValue": "'ALL'",
         "refresh": 2,
         "sort": 1,
         "current": {"selected": true, "text": ["All"], "value": ["$__all"]},
